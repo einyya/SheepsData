@@ -675,8 +675,6 @@ def statistic_tests_W4_legs(W4_leg):
     # print('P-value:', p)
 
     # Perform the one-way ANOVA test
-    def df(Num, DataBase):
-        return
 
 
 def full_plot(Num,DataBase):
