@@ -19,6 +19,7 @@ from scipy.stats import ttest_ind
 from scipy.stats import f_oneway
 import warnings
 import shutils
+from matplotlib.colors import Normalize
 
 
 def downlead_file(type):
@@ -38,6 +39,25 @@ def downlead_file(type):
             dataNum = data_per_sheep(data, sheep_num, 'TechCare')
             lowess(dataNum, sheep_num, 'daysFS', 'Weight',DataBase='TechCare')
 
+
+    if type == 'ivri2':
+        data= pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\row_data\Ivri_2.csv')
+        data.columns = ['date', 'date-time', 'SheepNum', 'weight', 'ml', 'duration','cross']
+        # data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%d/%m/%Y'))
+        data = data.sort_values(by='date')
+        data = Herb_data(data)
+
+        sheep_num_list = data['SheepNum'].astype(int)
+        for sheep_num in sheep_num_list:
+            dataNum = data_per_sheep(data, sheep_num,'ivri')
+            lowess(dataNum, sheep_num, 'daysFS', 'weight',DataBase='ivri')
+            plot(sheep_num, 'Scatter_lowess', 'daysFS', 'weight', DataBase='ivri')
+            lowess(dataNum, sheep_num, 'daysFS', 'ml', exclude_zero=True,DataBase='ivri')
+            plot(sheep_num, 'Scatter_lowess', 'daysFS', 'ml', DataBase='ivri')
+            plot(sheep_num, 'Scatter_lowess', 'daysFS', 'ml-agr', DataBase='ivri')
+
+            # lowess(dataNum, sheep_num, 'daysFS', 'weight',DataBase='ivri')
+            # lowess(dataNum, sheep_num, 'daysFS', 'ml', exclude_zero=True,DataBase='ivri')
 
     if type == 'ivri':
         # Download the CSV file web
@@ -63,6 +83,8 @@ def downlead_file(type):
             dataNum = data_per_sheep(data, sheep_num,'ivri')
             lowess(dataNum, sheep_num, 'daysFS', 'weight',DataBase='ivri')
             lowess(dataNum, sheep_num, 'daysFS', 'ml', exclude_zero=True,DataBase='ivri')
+
+
     if type == 'exception':
         excaption_table= pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\information_about_data\exceptions\exception_table.csv')
         specific_date_table = excaption_table.loc[:, ['sheepNum', 'specific_date']]
@@ -146,7 +168,7 @@ def process_data(type,variable=None,Num=None):
 
 def Herb_data(data):
     # Drop column 8
-    data = data.drop(data.columns[7], axis=1)
+    # data = data.drop(data.columns[7], axis=1)
     data = clean_data(data)
     date_to_numeric_distance(data,'first_day')
     dataC = pd.DataFrame(data)
@@ -178,21 +200,23 @@ def clean_data(data, exclude_zero=False, DataBase=None):
     if DataBase is None:
         missing_cols = data.columns[data.isnull().any()]
         data.dropna(subset=missing_cols, inplace=True)
-        data['duration'] = data['duration'].apply(lambda x: x if isinstance(x, int) else int(x.split(':')[0]) * 60 + int(x.split(':')[1]))
+        columns=['SheepNum','weight','ml']
+        for column in columns:
+                data[column] = data[column].astype(int)
+        # data['duration'] = data['duration'].apply(lambda x: x if isinstance(x, int) else int(x.split(':')[0]) * 60 + int(x.split(':')[1]))
+        # data['duration'] = pd.to_datetime(data['duration'], format='%H:%M')
+        # data = data[data['duration'] <= pd.to_datetime('5:00', format='%H:%M').time()]
         if exclude_zero:
             data = data[data['ml'] != 0].copy()  # Create a copy of the DataFrame
         else:
             data = data.copy()
-        data = data[data['ml'] <= 3000]
+        data = data[data['ml'] <= 5000]
+        data = data[data['weight']<= 90]
         return data
 
 
 
-def weight_normalize(data, center_date, specific_date=None):
-
-
-
-
+# def weight_normalize(data, center_date, specific_date=None):
 
 
 def date_to_numeric_distance(data, center_date, specific_date=None):
@@ -200,11 +224,6 @@ def date_to_numeric_distance(data, center_date, specific_date=None):
     # if center_date == 'specific_date':
     # if center_date == 'first_day':
 
-    """
-    Converts a column of date strings to numeric values representing the number of days
-    since the first date in the column. If a specific_date is provided, calculates the
-    number of days between that date and the first date in the column instead.
-    """
     if 'date' in data.columns:
         date_col='date'
     if 'Date' in data.columns:
@@ -217,9 +236,18 @@ def date_to_numeric_distance(data, center_date, specific_date=None):
     if center_date == 'first_day':
         specific_date=dates.min()
     date_diffs = (dates - specific_date).dt.days + 1
-    if 'daysFS' in data.columns:
-        data.drop('daysFS', axis=1, inplace=True)
-    data.insert(loc=data.columns.get_loc(date_col) + 1, column='daysFS', value=date_diffs)
+    if center_date =='last_day':
+        if 'daysFE' in data.columns:
+            data.drop('daysFE', axis=1, inplace=True)
+        data.insert(loc=data.columns.get_loc(date_col) + 1, column='daysFE', value=date_diffs)
+    if center_date =='specific_date':
+        if 'daysSP' in data.columns:
+            data.drop('daysSP', axis=1, inplace=True)
+        data.insert(loc=data.columns.get_loc(date_col) + 1, column='daysSP', value=date_diffs)
+    if center_date == 'first_day':
+        if 'daysFS' in data.columns:
+            data.drop('daysFS', axis=1, inplace=True)
+        data.insert(loc=data.columns.get_loc(date_col) + 1, column='daysFS', value=date_diffs)
     return data
 
 
@@ -238,6 +266,10 @@ def data_per_sheep(data,sheepNum,DataBase):
     if DataBase == 'ivri':
         data = data[data['SheepNum'] == sheepNum]
         data=date_to_numeric_distance(data,'first_day')
+        data['date'] = pd.to_datetime(data['date'], format='%d/%m/%Y')
+        data = data.sort_values(by='date')
+        ml_agr = data.groupby('date')['ml'].transform('sum')
+        data.insert(loc=data.columns.get_loc('ml') + 1, column='ml-agr', value=ml_agr)
         data.to_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\data_per_sheep\data' + Num + '.csv')
     if DataBase=='TechCare':
         data = data[data['RFID'] == sheepNum]
@@ -270,19 +302,37 @@ def lowess_median(dataNum, Num, X, Y, exclude_zero=False, frac=None):
     return lowess
 
 def lowess(dataNum, Num, X, Y, exclude_zero=False, frac=None,DataBase=None,plot=False):
+    dataC= pd.DataFrame(columns=['daysFS', Y])
     if frac is None:
         frac = 0.3
     Num = str(Num)
     if exclude_zero == True:
         dataNum = clean_data(dataNum, exclude_zero=True)
-    lowess = sm.nonparametric.lowess(dataNum[Y], dataNum[X], frac=frac)
-    lowess = pd.DataFrame(lowess, columns=['daysFS', Y])
-    lowess = lowess.drop_duplicates(subset='daysFS', keep='first')
-    lowessNum_name = f"lowess_{Num}_{Y}"
-    globals()[lowessNum_name] = lowess
-    dataC = pd.DataFrame(lowess)
-    column_name = str(Y)
-    dataC.columns = ['daysFS', column_name]
+    if Y == 'ml':
+        lowess_list = ['ml', 'ml-agr']
+        # Iterate over the column names in lowess_list
+        for Y in lowess_list:
+            if Y == 'ml':
+                lowess = sm.nonparametric.lowess(dataNum[Y], dataNum[X], frac=frac)
+                lowess = pd.DataFrame(lowess, columns=['daysFS', Y])
+                lowess = lowess.drop_duplicates(subset='daysFS', keep='first')
+                ml_list=lowess[Y]
+            if Y == 'ml-agr':
+                lowess = sm.nonparametric.lowess(dataNum[Y], dataNum[X], frac=frac)
+                lowess = pd.DataFrame(lowess, columns=['daysFS', Y])
+                lowess = lowess.drop_duplicates(subset='daysFS', keep='first')
+                ml_agrgap_list=lowess[Y]
+        dataC = pd.DataFrame({'daysFS': lowess[X], 'ml':ml_list, 'ml-agr': ml_agrgap_list})
+        Y='ml'
+    if Y == 'weight':
+            lowess = sm.nonparametric.lowess(dataNum[Y], dataNum[X], frac=frac)
+            lowess = pd.DataFrame(lowess, columns=['daysFS', Y])
+            lowess = lowess.drop_duplicates(subset='daysFS', keep='first')
+            lowessNum_name = f"lowess_{Num}_{Y}"
+            globals()[lowessNum_name] = lowess
+            dataC = pd.DataFrame(lowess)
+            column_name = str(Y)
+            dataC.columns = ['daysFS',column_name]
     if DataBase == 'exception':
             dataC.to_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\lowess_exception\_'+Y+'\lowess' + Num + '_' + Y + '.csv')
     if DataBase =='ivri':
@@ -295,6 +345,8 @@ def lowess(dataNum, Num, X, Y, exclude_zero=False, frac=None,DataBase=None,plot=
                 plot(Num, 'Scatter_lowess', X, Y, DataBase='exception')
             if DataBase == 'ivri':
                 plot(Num, 'Scatter_lowess', X, Y, DataBase='ivri')
+                # plot(Num, PlotType, X, Y, DataBase=None, specific_date=None):
+
     if DataBase == 'TechCare':
         if Y == 'Weight':
             dataC.to_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\TechCare\Analysis_per _sheep\lowess_per_sheep\weight\lowess' + Num + '_' + Y + '.csv')
@@ -505,15 +557,14 @@ def filter_lowess(lowess, lowessHerb_ml):
 def custom_date_parser(date_str):
     return pd.datetime.strptime(date_str, '%d/%m/%Y')
 
-
-
-def plot(Num,PlotType, X, Y,DataBase = None, specific_date=None):
+def plot(Num,PlotType, X, Y,DataBase = None ,specific_date=None):
+    Num=str(Num)
     if DataBase == 'exception':
         dataNum = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\information_about_data\exceptions\_'+Num+'\data_'+Num+'_DateCenter.csv')
         if Y == 'ml':
             dataNum=clean_data(dataNum, exclude_zero=True)
     if DataBase == 'ivri':
-        dataNum = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\data_per_sheep\data' + Num + '.csv')
+        dataNum = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\data_per_sheep\data'+Num+'.csv')
         if Y == 'ml':
             dataNum=clean_data(dataNum, exclude_zero=True)
     if DataBase == 'TechCare':
@@ -540,12 +591,43 @@ def plot(Num,PlotType, X, Y,DataBase = None, specific_date=None):
         if PlotType=='Scatter' or PlotType =='Scatter_lowess':
             x = dataNum[X]
             y = dataNum[Y]
-        if PlotType == 'lowess' or PlotType =='Scatter_lowess':
+        if PlotType == 'lowess' or PlotType =='Scatter_lowess' or PlotType == 'lowess_less_first' or PlotType == 'lowess_division_first':
             if Y == 'weight':
                 lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\weight\lowess' + Num + '_' + Y + '.csv')
             if Y == 'ml':
                 lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\ml\lowess' + Num + '_' + Y + '.csv')
-            plt.plot(lowess[X], lowess[Y], color='red', linewidth=2)
+            if PlotType == 'lowess_less_first':
+                first_value = lowess[Y][0]
+                normalized_y = lowess[Y] - first_value
+                x = lowess[X]
+                y = normalized_y
+                data = pd.DataFrame({'daysFS': x, 'weight': y})
+                data.to_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\normalize\lowess_less_first\lowess' + Num + '_' + Y + '.csv')
+                plt.plot(x, y, color='blue', linewidth=2, label='Normalized')
+                plt.xlabel(X)
+                plt.ylabel(Y)
+                plt.legend()
+                plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\plot_per sheep\normalize\lowess_less_first\plot" + str(Num) + Y + "~ " + X + ".png")
+                plt.show()
+                return
+            if PlotType == 'lowess_division_first':
+                first_value = lowess[Y][0]
+                normalized_y = lowess[Y] / first_value
+                x = lowess[X]
+                y = normalized_y
+                plt.plot(x, y, color='blue', linewidth=2, label='Normalized')
+                plt.xlabel(X)
+                plt.ylabel(Y)
+                plt.legend()
+                data = pd.DataFrame({'daysFS': x, 'weight': y})
+                data.to_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\normalize\lowess_division_first\lowess' + Num + '_' + Y + '.csv')
+                plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\plot_per sheep\normalize\lowess_division_first\plot" + str(Num) + Y + "~ " + X + ".png")
+                plt.show()
+                return
+
+    if PlotType == 'lowess':
+        x = lowess[X]
+        y = lowess[Y]
         if specific_date is not None:
             specific_date = datetime.strptime(specific_date, '%d/%m/%Y')
             new_date_str = datetime.strftime(specific_date, '%Y-%m-%d')
@@ -557,11 +639,30 @@ def plot(Num,PlotType, X, Y,DataBase = None, specific_date=None):
         plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\plot_per sheep\_"+ PlotType +"\_"+ Y +"\plot" + str(Num) + Y + "~ " + X + ".png")
         plt.show()
         return
+    if PlotType =='Scatter_lowess':
+        # specific_date = datetime.strptime(specific_date, '%d/%m/%Y')
+        # new_date_str = datetime.strftime(specific_date, '%Y-%m-%d')
+        # value = dataNum.loc[dataNum['date'] == new_date_str, 'daysFS'].values[0]
+        if Num=='22725':
+            first_value = lowess[X][0]
+            normalized_y = lowess[Y] / first_value
+            x = lowess[X]
+            y = normalized_y
+        data_gap = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\parameter examination\lowess\data_gap_cal_wight.csv')
+        data_gap['SheepNum'] = data_gap['SheepNum'].astype(str).str.rstrip('0').str.rstrip('.')
+        gap = data_gap.loc[data_gap['SheepNum'] == Num, 'abs(0.3_diff)/Weight_4_legs']
+        gap = gap.iloc[0]
+        plt.axvline(x=53, color='brown', linestyle='--', label='gap' + str(gap))
+        plt.plot(lowess[X], lowess[Y], color='blue', linewidth=2)
+        plt.xlabel(X)
+        plt.ylabel(Y)
+        plt.scatter(x,y)
+        plt.legend()
+        plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\plot_per sheep\groups\ivri1-1.1.23\plot" + str(Num) + Y + "~ " + X + ".png")
+        plt.show()
+
     if DataBase == 'TechCare':
 
-        if PlotType=='Scatter' or PlotType =='Scatter_lowess':
-            x = dataNum[X]
-            y = dataNum[Y]
         if PlotType == 'lowess' or PlotType =='Scatter_lowess':
             if Y == 'Weight':
                 lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\TechCare\Analysis_per _sheep\lowess_per_sheep\weight\lowess' + Num + '_' + Y + '.csv')
@@ -579,33 +680,107 @@ def plot(Num,PlotType, X, Y,DataBase = None, specific_date=None):
 
     if DataBase is None:
         if PlotType == 'multi_exception':
-            exception_table = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\information_about_data\exceptions\exception_table.csv')
+            # exception_table = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\information_about_data\exceptions\exception_table.csv')
             # sheep_num_list = exception_table.loc[exception_table['strees_type'] == 'death', 'sheepNum']
-            sheep_num_list = exception_table.loc[(exception_table['strees_type'] == 'death') & (exception_table['farm'] == 'ivri'), 'sheepNum']
+            # sheep_num_list = exception_table.loc[(exception_table['strees_type'] == 'death') & (exception_table['farm'] == 'ivri'), 'sheepNum']
             # sheep_num_list = exception_table.loc[(exception_table['strees_type'] == 'tumor') & (exception_table['farm'] == 'ivri'), 'sheepNum']
             # sheep_num_list = exception_table['sheepNum']
+            sheep_num_list = ['432','437','450']
             # Define a colormap for assigning colors to each sheep
             colormap = plt.cm.get_cmap('viridis', len(sheep_num_list))
 
             for i, sheep_num in enumerate(sheep_num_list):
                 if Y == 'weight':
                     if len(sheep_num)==5:
-                        lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\lowess_exception\_'+Y+'\lowess' + sheep_num + '_' + Y + '.csv')
+                        lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\weight\lowess' + sheep_num + '_' + Y + '.csv')
                     else:
-                        lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\lowess_exception\_'+Y+'\lowess' + sheep_num + '_' + Y + '.csv')
-                        Y = 'Weight'
+                        lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\weight\lowess' + sheep_num + '_' + Y + '.csv')
+                        Y = 'weight'
                 # Assign a color based on the colormap
                 color = colormap(i)
                 plt.plot(lowess[X], lowess[Y], color=color, linewidth=2, label=f'Sheep {sheep_num}')
+            # Set labels and title for the plot
+            plt.xlabel(X)
+            plt.ylabel(Y)
+            plt.title('Lowess Curves for the Comparison')
+            plt.legend()
+            plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\plot_per sheep\_multi_lowess\Comparison "+Y+".png")
+            plt.show()
+            return
+        if PlotType == 'multi_exception_division_first':
+            data = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\parameter examination\lowess\data_gap_cal_wight_onlyDiff.csv')
+            data = data.loc[data['binary'] == 1, ['SheepNum']].astype(int)
+            # Define a colormap for assigning colors to each sheep
+            sheep_num_list = data['SheepNum']
+            colormap = plt.cm.get_cmap('viridis', len(sheep_num_list))
+            for i, sheep_num in enumerate(sheep_num_list):
+                lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\normalize\lowess_division_first\lowess' + str(sheep_num) + '_' + Y + '.csv')
+                color = colormap(i)
+                plt.plot(lowess[X], lowess[Y], color=color, linewidth=2, label=f'Sheep {sheep_num}')
         # Set labels and title for the plot
-        plt.xlabel(X)
-        plt.ylabel(Y)
-        plt.title('Lowess Curves for the Comparison')
-        plt.legend()
-        plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\plot_per sheep\_multi_lowess\Comparison "+Y+".png")
-        plt.show()
-        return
+            plt.xlabel(X)
+            plt.ylabel(Y)
+            plt.title('Lowess Curves for the Comparison_division_first')
+            plt.legend()
+            plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\plot_per sheep\_multi_lowess\Comparison_division_first"+Y+".png")
+            plt.show()
+            return
+    if PlotType == 'multi_exception_less_first':
+        data = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\parameter examination\lowess\data_gap_cal_wight_onlyDiff.csv')
+        data = data.loc[data['binary'] == 1, ['SheepNum']].astype(int)
+        # Define a colormap for assigning colors to each sheep
+        sheep_num_list=data['SheepNum']
+        colormap = plt.cm.get_cmap('viridis', len(sheep_num_list))
 
+        for i, sheep_num in enumerate(sheep_num_list):
+            lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\normalize\lowess_less_first\lowess' + str(sheep_num) + '_' + Y + '.csv')
+            color = colormap(i)
+            plt.plot(lowess[X], lowess[Y], color=color, linewidth=2, label=f'Sheep {sheep_num}')
+            for i, sheep_num in enumerate(sheep_num_list):
+                lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\normalize\lowess_less_first\lowess' + str(sheep_num) + '_' + Y + '.csv')
+                color = red
+                plt.plot(lowess[X], lowess[Y], color=color, linewidth=2, label=f'Sheep {sheep_num}')
+            # Set labels and title for the plot
+            plt.xlabel(X)
+            plt.ylabel(Y)
+            plt.title('Lowess Curves for the Comparison_less_first_with_exception')
+            plt.legend()
+            plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\plot_per sheep\_multi_lowess\Comparison_less_first" + Y + ".png")
+            plt.show()
+            return
+    if PlotType == 'multi_exception_less_first_with_exception':
+            # data = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\parameter examination\lowess\data_gap_cal_wight_onlyDiff.csv')
+            # sheep_num_list = data.loc[data['binary'] == 1, ['SheepNum']].astype(int)
+            # Define a colormap for assigning colors to each sheep
+            data=pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\information_about_data\4_legs_W\C_W4_leg_22-02-23.csv')
+            sheep_num_list = data.loc[(data['Entre_Date'] == '01/01/2023') & (data['type'] == 'ok'), 'Tag'].astype(int)
+            for i, sheep_num in enumerate(sheep_num_list):
+                lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\normalize\lowess_less_first\lowess' + str(sheep_num) + '_' + Y + '.csv')
+                lowess = lowess.loc[lowess['daysFS'] < 20]
+                plt.plot(lowess[X], lowess[Y], color='blue', linewidth=2, label=f'Sheep {sheep_num}')
+            sheep_num_list = data.loc[(data['Entre_Date'] == '01/01/2023') & (data['type'] == 'diarrhea'), 'Tag'].astype(int)
+            for i, sheep_num in enumerate(sheep_num_list):
+                lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\normalize\lowess_less_first\lowess' + str(sheep_num) + '_' + Y + '.csv')
+                lowess = lowess.loc[lowess['daysFS'] < 20]
+                plt.plot(lowess[X], lowess[Y], color='green', linewidth=2, label=f'Sheep {sheep_num}')
+            sheep_num_list = data.loc[(data['Entre_Date'] == '01/01/2023') & (data['type'] == 'death'), 'Tag'].astype(int)
+            for i, sheep_num in enumerate(sheep_num_list):
+                lowess = pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\lowess_per_sheep\normalize\lowess_less_first\lowess' + str(sheep_num) + '_' + Y + '.csv')
+                first_value_y = lowess[Y][0]
+                normalized_y = lowess[Y] - first_value_y
+                first_value_x = lowess[X][0]
+                normalized_x = lowess[X] - first_value_x
+                x = normalized_x
+                y = normalized_y
+                plt.plot(x, y, color='red', linewidth=2, label=f'Sheep {sheep_num}')
+            # Set labels and title for the plot
+            plt.xlabel(X)
+            plt.ylabel(Y)
+            plt.title(' Comparison_less_first_with_exceptionuntil_20')
+            # plt.legend()
+            plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\Analysis_per _sheep\plot_per sheep\_multi_lowess\Comparison_less_first_until_20" + Y + ".png")
+            plt.show()
+            return
 
 
 def plot_simple():
@@ -638,8 +813,7 @@ def statistic_tests_W4_legs(W4_leg):
     for col in outlier_cols:
         W4_leg = W4_leg[W4_leg['Weight_device'] != '?']
 
-    W4_leg.to_csv(
-        r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\information_about_data\4_legs_W\C_W4_leg_22-02-23.csv')
+    W4_leg.to_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\information_about_data\4_legs_W\C_W4_leg_22-02-23.csv')
     Table_Anova = pd.read_csv(
         r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\information_about_data\4_legs_W\Table_Anova.csv')
     model = ols('sheepNum ~ type', data=Table_Anova).fit()
@@ -685,9 +859,24 @@ def full_plot(Num,DataBase):
     plot(Num, 'Scatter', 'daysFS', 'cross',DataBase)
 
 # --------------------------------------------------------------plot-------------------------------------------------------
-# downlead_file('fiona_exception')
+downlead_file('ivri2')
 # downlead_file('exception')
 # Data_herb
+data=pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\information_about_data\4_legs_W\C_W4_leg_22-02-23.csv')
+sheep_num_list = data.loc[data['Entre_Date'] == '01/01/2023', 'Tag'].astype(int)
+
+# sheep_num_list=['22723','22717']
+# Iterate over the sheep numbers
+# for i, sheep_num in enumerate(sheep_health_list):
+for sheep_num in sheep_num_list:
+    plot(sheep_num,'Scatter_lowess', 'daysFS', 'weight','ivri')
+    # plot(sheep_num,'lowess_division_first', 'daysFS', 'weight','ivri')
+    # plot(sheep_num,'lowess_less_first', 'daysFS', 'weight','ivri')
+
+# plot('multi','multi_exception_less_first_with_exception', 'daysFS', 'weight')
+
+
+
 # data = downlead_file('exception')
 # parameter_exam('22/02/2023')
 # gap_cal('median')
@@ -697,3 +886,51 @@ def full_plot(Num,DataBase):
 # plot('multi', 'multi_exception', 'daysFS', 'weight')
 # plot('250,017,033,503,954','multi_exception', 'daysFS', 'weight')
 # plot('250,017,033,503,954','Scatter','daysFS','weight','TechCare')
+# plot('509','multi_exception', 'daysFS', 'weight')
+# plot('509','lowess', 'daysFS', 'weight' ,'ivri')
+# plot('509','Scatter_lowess', 'daysFS', 'weight' ,'ivri')
+
+# data=pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\parameter examination\lowess\data_gap_cal_wight.csv')
+# plt.xlabel('Weight_4_legs')
+# plt.title("'SheepNum'~abs(0.3_diff)/Weight_4_legs")
+# plt.ylabel('abs(0.3_diff)')
+# plt.scatter(data['Weight_4_legs'],data['abs(0.3_diff)/Weight_4_legs'])
+# plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\parameter examination\lowess\gap_plots\weight~diff\SheepNum'~abs(0.3_diff)%Weight_4_legs.png")
+# plt.show()
+# plt.title("abs(0.3_diff)~'SheepNum'")
+# plt.ylabel('SheepNum')
+# plt.xlabel('abs(0.3_diff)')
+# plt.scatter(data['abs(0.3_diff)'],data['SheepNum'])
+# plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\parameter examination\lowess\gap_plots\sheepNum~diff\abs(0.3_diff)~Weight_4_legs.png")
+# plt.show()
+# plt.title("0.3_diff~'SheepNum'")
+# plt.ylabel('SheepNum')
+# plt.xlabel('0.3_diff')
+# plt.scatter(data['0.3_diff'],data['SheepNum'])
+# plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\parameter examination\lowess\gap_plots\sheepNum~diff\0.3_diff~Weight_4_legs.png")
+# plt.show()
+# data_sorted = data.sort_values(by='0.6_diff')
+# plt.title("'SheepNum'~0.6_diff")
+# plt.xlabel('SheepNum')
+# plt.ylabel('0.6_diff')
+# plt.scatter(data['SheepNum'],data['0.6_diff'])
+# plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\parameter examination\lowess\gap_plots\sheepNum~diff\Weight_4_legs~0.6_diff.png")
+# plt.show()
+# plt.xlabel('SheepNum')
+# plt.title("'SheepNum'~abs(0.6_diff)")
+# plt.ylabel('abs(0.6_diff)')
+# plt.scatter(data['SheepNum'],data['abs(0.6_diff)'])
+# plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\parameter examination\lowess\gap_plots\sheepNum~diff\Weight_4_legs~abs(0.6_diff).png")
+# plt.show()
+# plt.title("abs(0.6_diff)~'SheepNum'")
+# plt.ylabel('SheepNum')
+# plt.xlabel('abs(0.6_diff)')
+# plt.scatter(data['abs(0.6_diff)'],data['SheepNum'])
+# plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\parameter examination\lowess\gap_plots\sheepNum~diff\abs(0.6_diff)~Weight_4_legs.png")
+# plt.show()
+# plt.title("0.6_diff~'SheepNum'")
+# plt.ylabel('SheepNum')
+# plt.xlabel('0.6_diff')
+# plt.scatter(data['0.6_diff'],data['SheepNum'])
+# plt.savefig(r"C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\parameter examination\lowess\gap_plots\sheepNum~diff\0.6_diff~Weight_4_legs.png")
+# plt.show()
