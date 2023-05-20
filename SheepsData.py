@@ -46,7 +46,6 @@ def downlead_file(type):
         # data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%d/%m/%Y'))
         data = data.sort_values(by='date')
         data = Herb_data(data)
-
         sheep_num_list = data['SheepNum'].astype(int)
         for sheep_num in sheep_num_list:
             dataNum = data_per_sheep(data, sheep_num,'ivri')
