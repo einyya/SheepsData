@@ -39,7 +39,6 @@ def downlead_file(type):
             dataNum = data_per_sheep(data, sheep_num, 'TechCare')
             lowess(dataNum, sheep_num, 'daysFS', 'Weight',DataBase='TechCare')
 
-
     if type == 'ivri2':
         data= pd.read_csv(r'C:\Users\e3bom\OneDrive - post.bgu.ac.il\פרויקט גמר ומחקר\חלק יישומי\DATA ומודלים\DATA\row_data\Ivri_2.csv')
         data.columns = ['date', 'date-time', 'SheepNum', 'weight', 'ml', 'duration','cross']
