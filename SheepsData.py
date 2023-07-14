@@ -7,7 +7,7 @@ import os
 import time
 import statsmodels.api as sm
 import seaborn as sns
-import statsmodels.api as sm
+import statsmodels.api as sm 
 from statsmodels.formula.api import ols
 from statsmodels.nonparametric.smoothers_lowess import lowess
 import datetime as dt
